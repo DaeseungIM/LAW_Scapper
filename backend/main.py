@@ -1,4 +1,11 @@
 import os
+import sys
+import asyncio
+
+# Windows 환경에서 Playwright/Subprocess 호출 시 발생하는 asyncio NotImplementedError 방지
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from dotenv import load_dotenv
 
 # .env 환경 변수 로드
