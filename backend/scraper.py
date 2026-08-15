@@ -106,54 +106,14 @@ class LawScraper:
                         print(f"추출된 총 개정연혁 법령 수: {len(history_matches)}개")
                         
                         if history_matches:
-                            # 최근 3개 연혁 파일만 PDF 다운로드 수행 (사용자 요구사항)
-                            recent_targets = history_matches[:3]
-                            downloaded_files = []
-                            
-                            print("최근 3개 개정연혁 파일 PDF 다운로드 시작...")
-                            for idx, target in enumerate(recent_targets):
-                                seq = target["lsiSeq"]
-                                hst_title = target["title"]
-                                
-                                # 파일명 정규화
-                                clean_hst_title = re.sub(r'[\\/*?:"<>|]', "", hst_title).strip()
-                                # 빈칸 및 다중 탭 정리
-                                clean_hst_title = " ".join(clean_hst_title.split())
-                                filename = f"[{idx+1}].{clean_hst_title}.pdf"
-                                filepath = os.path.join(self.download_dir, filename)
-                                
-                                print(f"[{idx+1}/3] {filename} 다운로드 중... (lsiSeq: {seq})")
-                                
-                                # 직접 PDF 다운로드 API 호출 시도
-                                download_success = self.download_direct_pdf(seq, filepath)
-                                
-                                if download_success:
-                                    downloaded_files.append({
-                                        "type": "pdf",
-                                        "filename": filename,
-                                        "download_url": f"/downloads/{filename}"
-                                    })
-                                else:
-                                    print(f"[{idx+1}/3] {filename} 다운로드 실패. 다른 방식으로 우회 시도합니다.")
-                                
-                                # IP 차단 방지를 위한 인간 다운로더 시뮬레이션 딜레이 적용
-                                delay_time = random.uniform(3.0, 6.0)
-                                print(f"IP 차단 방지를 위해 {delay_time:.2f}초간 휴식...")
-                                await page.wait_for_timeout(int(delay_time * 1000))
-                                
-                            if downloaded_files:
-                                return {
-                                    "success": True,
-                                    "title": f"{safe_title} (개정연혁 수집)",
-                                    "type": "history_scraper",
-                                    "downloaded_files": downloaded_files,
-                                    "msg": f"최근 3개의 개정연혁 PDF 원문을 성공적으로 수집하여 다운로드했습니다."
-                                }
-                            else:
-                                return {
-                                    "success": False,
-                                    "msg": "개정연혁 목록은 감지하였으나 PDF 파일 저장에 실패했습니다. 사이트 보안 정책이 강화되었을 수 있습니다."
-                                }
+                            print(f"개정연혁 목록 수집 완료: {len(history_matches)}개. 목록을 반환합니다.")
+                            return {
+                                "success": True,
+                                "title": f"{safe_title} (개정연혁 목록)",
+                                "type": "history_list",
+                                "history_list": history_matches,
+                                "msg": f"총 {len(history_matches)}개의 개정연혁 목록을 성공적으로 감지했습니다. 아래 목록에서 다운로드할 개정연혁을 선택해 주세요."
+                            }
                         else:
                             print("연혁 레이어 HTML 소스 내에서 개정 리스트(lsiSeq)를 정규식으로 파싱해내지 못했습니다. 우회 수집을 적용합니다.")
                     else:

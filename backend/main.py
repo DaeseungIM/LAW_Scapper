@@ -124,6 +124,43 @@ async def start_scrape(request: ScrapeRequest):
             guide=scrape_result.get("guide")
         )
 
+class DownloadPdfRequest(BaseModel):
+    lsiSeq: str
+    title: str
+
+@app.post("/api/download_pdf")
+async def download_pdf_endpoint(request: DownloadPdfRequest):
+    import re
+    lsi_seq = request.lsiSeq.strip()
+    title = request.title.strip()
+    
+    if not lsi_seq:
+        raise HTTPException(status_code=400, detail="lsiSeq가 누락되었습니다.")
+        
+    scraper = LawScraper(download_dir=DOWNLOAD_DIR)
+    
+    # 안전한 파일명 생성
+    safe_title = re.sub(r'[\\/*?:"<>|]', "", title).strip()
+    safe_title = " ".join(safe_title.split())
+    if not safe_title:
+        safe_title = f"개정연혁_{lsi_seq}"
+        
+    filename = f"{safe_title}.pdf"
+    filepath = os.path.join(DOWNLOAD_DIR, filename)
+    
+    success = scraper.download_direct_pdf(lsi_seq, filepath)
+    if success:
+        return {
+            "status": "success",
+            "filename": filename,
+            "download_url": f"/downloads/{filename}"
+        }
+    else:
+        return {
+            "status": "error",
+            "message": "법령 PDF 파일 스트림을 획득하지 못했습니다. 법제처 서버에서 실시간 다운로드를 막았을 수 있습니다."
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

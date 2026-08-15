@@ -7,6 +7,11 @@ interface DownloadedFile {
   download_url: string;
 }
 
+interface HistoryItem {
+  lsiSeq: string;
+  title: string;
+}
+
 interface ScrapedResult {
   id: number;
   name: string;
@@ -14,6 +19,7 @@ interface ScrapedResult {
   status: 'completed' | 'pending' | 'error';
   files: DownloadedFile[];
   type: string;
+  history_list?: HistoryItem[];
 }
 
 export default function App() {
@@ -43,6 +49,44 @@ export default function App() {
   // 백엔드 API 서버 주소 (로컬 또는 커스텀 설정)
   const [apiUrl, setApiUrl] = useState('http://localhost:8000');
   const [showSettings, setShowSettings] = useState(false);
+  const [downloadingSeq, setDownloadingSeq] = useState<string | null>(null);
+
+  const handleDownloadHistory = async (seq: string, title: string) => {
+    setDownloadingSeq(seq);
+    addLog(`개별 연혁 PDF 변환 및 다운로드 중... (번호: ${seq}, 제목: ${title})`);
+    try {
+      const response = await fetch(`${apiUrl}/api/download_pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lsiSeq: seq,
+          title: title,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const res = await response.json();
+      if (res.status === 'success') {
+        addLog(`성공: ${res.filename} 다운로드 완료!`);
+        const link = document.createElement('a');
+        link.href = `${apiUrl}${res.download_url}`;
+        link.setAttribute('download', res.filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        addLog(`오류: ${res.message}`);
+        alert(res.message);
+      }
+    } catch (err: any) {
+      addLog(`다운로드 장애: ${err.message}`);
+      alert(`다운로드 실패: ${err.message}`);
+    } finally {
+      setDownloadingSeq(null);
+    }
+  };
 
   // 진행률 시뮬레이션
   useEffect(() => {
@@ -123,6 +167,7 @@ export default function App() {
           status: 'completed',
           type: result.data.type || 'unknown',
           files: result.data.downloaded_files || [],
+          history_list: result.data.history_list || [],
         };
 
         if (newResult.files.length > 0) {
@@ -394,7 +439,33 @@ export default function App() {
                       {row.date}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {row.files && row.files.length > 0 ? (
+                      {row.type === 'history_list' && row.history_list && row.history_list.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg p-2.5 bg-slate-50 space-y-2 w-full max-w-xl text-left mx-auto">
+                          <p className="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-blue-500" />
+                            전체 개정연혁 목록 ({row.history_list.length}개) - 원하는 항목의 PDF 단추를 누르세요.
+                          </p>
+                          <div className="space-y-1.5">
+                            {row.history_list.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center gap-4 bg-white px-2.5 py-2 rounded-lg border border-slate-200/60 shadow-sm text-xs">
+                                <span className="font-semibold text-slate-700 leading-tight">{item.title}</span>
+                                <button
+                                  onClick={() => handleDownloadHistory(item.lsiSeq, item.title)}
+                                  disabled={downloadingSeq !== null}
+                                  className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
+                                    downloadingSeq === item.lsiSeq
+                                      ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                      : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border-blue-100'
+                                  }`}
+                                >
+                                  <Download className={`w-3 h-3 ${downloadingSeq === item.lsiSeq ? 'animate-bounce' : ''}`} />
+                                  {downloadingSeq === item.lsiSeq ? '수집중' : 'PDF'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : row.files && row.files.length > 0 ? (
                         <div className="flex justify-center gap-2">
                           {row.files.map((file, idx) => (
                             <a 
