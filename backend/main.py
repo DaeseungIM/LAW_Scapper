@@ -170,6 +170,6 @@ async def download_pdf_endpoint(request: DownloadPdfRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # reload=True를 주어 파이썬 코드가 변경될 때마다 서버가 자동으로 재구동(핫 리로드)되도록 고도화합니다.
-    # 리로드 모드를 적용하기 위해 앱 객체 대신 import 경로 문자열("backend.main:app")을 주입합니다.
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    # uvicorn의 reload=True(리로드 모드)는 윈도우 환경에서 강제로 구형 SelectorEventLoop를 주입하여 Playwright 실행 시 NotImplementedError를 발생시킵니다.
+    # 따라서 reload=False(기본 모드)로 강제 설정하여 ProactorEventLoop가 안정적으로 고정 적용되도록 조치합니다.
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False)
