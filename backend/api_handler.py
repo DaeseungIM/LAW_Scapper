@@ -16,8 +16,9 @@ class LawApiHandler:
         os.makedirs(self.download_dir, exist_ok=True)
 
     def parse_url(self, url: str) -> Dict[str, Optional[str]]:
-        """URL에서 법령 일련번호(lsiSeq/MST) 추출"""
-        result = {"lsiSeq": None, "mst": None}
+        """URL에서 법령 일련번호(lsiSeq/MST) 또는 검색어(query) 추출"""
+        import urllib.parse
+        result = {"lsiSeq": None, "mst": None, "query": None}
         
         lsi_match = re.search(r'lsiSeq=(\d+)', url)
         if lsi_match:
@@ -27,7 +28,67 @@ class LawApiHandler:
         if mst_match:
             result["mst"] = mst_match.group(1)
             
+        query_match = re.search(r'query=([^&#]+)', url)
+        if query_match:
+            result["query"] = urllib.parse.unquote(query_match.group(1))
+            
         return result
+
+    def get_amendment_history(self, search_query: str) -> Dict[str, Any]:
+        """OpenAPI 연혁법령(eflaw) 목록 조회"""
+        params = {
+            "OC": self.api_key,
+            "target": "eflaw",
+            "type": "XML",
+            "query": search_query,
+            "display": 100 # 최대 개수 반환
+        }
+        
+        try:
+            response = requests.get(self.BASE_URL, params=params, timeout=15)
+            response.raise_for_status()
+            
+            response.encoding = 'utf-8' if response.apparent_encoding == 'utf-8' else response.apparent_encoding
+            xml_text = response.text
+            
+            root = ET.fromstring(xml_text.encode('utf-8'))
+            
+            history_list = []
+            law_nodes = root.findall(".//law")
+            for law in law_nodes:
+                lsi_seq_node = law.find("법령일련번호")
+                title_node = law.find("법령명한글")
+                date_node = law.find("시행일자")
+                
+                if lsi_seq_node is not None and lsi_seq_node.text and title_node is not None and title_node.text:
+                    date_str = date_node.text if date_node is not None else ""
+                    # 시행일자를 YYYY. MM. DD. 형식으로 보기 좋게 포맷팅
+                    formatted_date = ""
+                    if date_str and len(date_str) >= 8:
+                        formatted_date = f"[시행 {date_str[:4]}. {date_str[4:6].lstrip('0')}. {date_str[6:8].lstrip('0')}.] "
+                        
+                    display_title = f"{formatted_date}{title_node.text.strip()}"
+                    history_list.append({
+                        "lsiSeq": lsi_seq_node.text.strip(),
+                        "title": display_title
+                    })
+                    
+            if history_list:
+                return {
+                    "success": True,
+                    "history_list": history_list
+                }
+            else:
+                return {
+                    "success": False,
+                    "msg": f"'{search_query}'에 대한 연혁 정보가 존재하지 않거나, 정확한 법령명으로 검색되지 않았습니다."
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "msg": f"연혁 API 호출 또는 파싱 실패: {str(e)}"
+            }
 
     def get_law_detail(self, lsi_seq: str) -> Dict[str, Any]:
         """API를 통해 법령 상세 정보 및 첨부파일 URL 획득"""

@@ -92,6 +92,41 @@ async def start_scrape(request: ScrapeRequest):
     # --- 국가법령정보센터 URL 판별 ---
     ids = api_handler.parse_url(url)
     
+    # 0. 개정연혁 목록 수집인 경우 (Playwright를 우회하여 100% 안정적인 OpenAPI로 즉시 수행)
+    if "history" in request.options:
+        search_query = ids.get("query")
+        
+        # 만약 URL에 query가 없는 대신 lsiSeq가 있다면, 법령명을 먼저 조회하여 연혁을 찾습니다.
+        if not search_query and ids.get("lsiSeq"):
+            detail_res = api_handler.get_law_detail(ids["lsiSeq"])
+            if detail_res["success"]:
+                search_query = detail_res["data"]["title"]
+                
+        if search_query:
+            print(f"OpenAPI를 통한 개정연혁 목록 조회 요청: {search_query}")
+            history_res = api_handler.get_amendment_history(search_query)
+            if history_res["success"]:
+                return ScrapeResponse(
+                    status="success",
+                    message="국가법령 Open API를 통해 개정연혁 전체 목록을 수집했습니다.",
+                    data={
+                        "type": "history_list",
+                        "title": f"{search_query} 개정연혁 목록",
+                        "date": "OpenAPI 실시간 조회",
+                        "history_list": history_res["history_list"]
+                    }
+                )
+            else:
+                return ScrapeResponse(
+                    status="error",
+                    message=history_res["msg"]
+                )
+        else:
+            return ScrapeResponse(
+                status="error",
+                message="개정연혁을 수집하기 위한 법령명(query) 또는 법령번호(lsiSeq)를 URL에서 추출할 수 없습니다."
+            )
+
     # 1. 우선 API 시도 (lsiSeq가 있는 경우, HWP 본문 다운로드가 아닐 때, 그리고 개정연혁 수집이 아닐 때)
     # XML API는 주로 서식 PDF/HWP를 제공하므로 본문 PDF/HWP가 필요하거나 개정연혁 전체 수집이 필요하다면 플레이라이트 스크래퍼가 더 적절합니다.
     if ids["lsiSeq"] and "hwp" not in request.options and "history" not in request.options:
