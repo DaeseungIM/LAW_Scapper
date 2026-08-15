@@ -10,8 +10,8 @@ class LawApiHandler:
     BASE_URL = "https://www.law.go.kr/DRF/lawSearch.do"
     DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 
-    def __init__(self, api_key: str = "test", download_dir: str = "downloads"):
-        self.api_key = api_key
+    def __init__(self, api_key: str = None, download_dir: str = "downloads"):
+        self.api_key = api_key or os.getenv("LAW_API_KEY", "ceiai_law_test")
         self.download_dir = download_dir
         os.makedirs(self.download_dir, exist_ok=True)
 
