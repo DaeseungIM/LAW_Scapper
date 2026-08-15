@@ -54,6 +54,22 @@ class LawScraper:
                     # a#hstView, button:has-text('연혁'), a:has-text('연혁') 등 다중 매칭
                     hst_btn = page.locator("a#hstView, .btn_history, a:has-text('연혁'), button:has-text('연혁')").first
                     
+                    print("연혁 버튼이 화면에 나타나기를 대기 중...")
+                    try:
+                        # 7초간 연혁 버튼이 나타날 때까지 명시적으로 기다립니다 (검색결과 동적 로딩 대응)
+                        await hst_btn.wait_for(state="visible", timeout=7000)
+                    except Exception as e_wait:
+                        print(f"연혁 버튼 대기 시간 초과: {str(e_wait)}")
+                        # 연혁 버튼이 나타나지 않은 경우 첫 번째 검색 결과를 강제로 클릭하여 본문을 로드합니다.
+                        first_result = page.locator("a[onclick*='lsViewWideAll'], li[id^='liBgcolor'] a, .x-grid3-row a").first
+                        if await first_result.count() > 0:
+                            print("첫 번째 검색 결과를 강제 클릭하여 법령 상세를 로드합니다...")
+                            await first_result.click()
+                            try:
+                                await hst_btn.wait_for(state="visible", timeout=7000)
+                            except:
+                                pass
+                    
                     if await hst_btn.count() > 0 and await hst_btn.is_visible():
                         await hst_btn.click()
                         print("연혁 버튼 클릭 완료. 연혁 레이어 로드 대기 중...")
