@@ -85,9 +85,9 @@ async def start_scrape(request: ScrapeRequest):
     # --- 국가법령정보센터 URL 판별 ---
     ids = api_handler.parse_url(url)
     
-    # 1. 우선 API 시도 (lsiSeq가 있는 경우 및 HWP 본문 다운로드가 아닐 때)
-    # XML API는 주로 서식 PDF/HWP를 제공하므로 본문 PDF/HWP가 필요하다면 플레이라이트 스크래퍼가 더 적절합니다.
-    if ids["lsiSeq"] and "hwp" not in request.options:
+    # 1. 우선 API 시도 (lsiSeq가 있는 경우, HWP 본문 다운로드가 아닐 때, 그리고 개정연혁 수집이 아닐 때)
+    # XML API는 주로 서식 PDF/HWP를 제공하므로 본문 PDF/HWP가 필요하거나 개정연혁 전체 수집이 필요하다면 플레이라이트 스크래퍼가 더 적절합니다.
+    if ids["lsiSeq"] and "hwp" not in request.options and "history" not in request.options:
         api_result = api_handler.get_law_detail(ids["lsiSeq"])
         if api_result["success"]:
             return ScrapeResponse(
